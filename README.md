@@ -18,15 +18,15 @@ Another test we will run is to verify that the checksum functionality for all of
 
 We will have a test for 404 responses where the server (process 0) will have a domain of valid strings it can accept and if it isn't one of these then it returns a 404 response which the receiving process must handle. This will be implemented by a process intentionally sending an invalid string to process 0.
 
-% Another test we will run is a 429 (too many request) where process 0 will keep track of how many requests it has received from each process. Once the number of requests from a process has exceeded the max limit of requests then the server will remove all of that process's requests from its queue and respond with a 429.
+Another test we will run is a 429 (too many request) where process 0 will keep track of how many requests it has received from each process. Once the number of requests from a process has exceeded the max limit of requests then the server will remove all of that process's requests from its queue and respond with a 429.
 
 Another test we will run is a 507 (insufficient storage) that will mean that process 0 has a set amount of requests it can handle at a time. When a request comes in when the max number of requests has been reached and before the serve processes that request then a 507 response is immediately sent to that process.
 
-% We will run a test that the server response with a 102 (processing) response. This will be sent to the process once the server is working on their request. This will enable the receiving process to wait for another response from the server which will let them know whether or not they need to resend their data.
+We will run a test that the server response with a 102 (processing) response. This will be sent to the process once the server is working on their request. This will enable the receiving process to wait for another response from the server which will let them know whether or not they need to resend their data.
 
 We will send a 200 response to the process from the server when the server receives the request.
 
-% We will have a 408 (time out) test which will be sent to the process which never sends any data and has an 'idle connection' with the server. The last process will always be chosen as the one that never sends a request to the server and will time out after 10 seconds. Once the 408 response is received then that process will finalize.
+We will have a 408 (time out) test which will be sent to the process which never sends any data and has an 'idle connection' with the server. The last process will always be chosen as the one that never sends a request to the server and will time out after 10 seconds. Once the 408 response is received then that process will finalize.
 
 A final test we will run is determine the average wait time for a process to receive a response from the server.
 
