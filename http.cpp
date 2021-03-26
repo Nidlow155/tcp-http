@@ -4,6 +4,7 @@
 #include <stdlib.h>
 #include <map>
 #include <iterator>
+#include <string>
 
 #define MCW MPI_COMM_WORLD
 
@@ -12,32 +13,14 @@ using namespace std;
 map<string, int> initializeServerData()
 {
   map<string, int> serverData;
-  serverData["a"] = 1;
-  serverData["b"] = 2;
-  serverData["c"] = 3;
-  serverData["d"] = 4;
-  serverData["e"] = 5;
-  serverData["f"] = 6;
-  serverData["g"] = 7;
-  serverData["h"] = 8;
-  serverData["i"] = 9;
-  serverData["j"] = 10;
-  serverData["k"] = 11;
-  serverData["l"] = 12;
-  serverData["m"] = 13;
-  serverData["n"] = 14;
-  serverData["o"] = 15;
-  serverData["p"] = 16;
-  serverData["q"] = 17;
-  serverData["r"] = 18;
-  serverData["s"] = 19;
-  serverData["t"] = 20;
-  serverData["u"] = 21;
-  serverData["v"] = 22;
-  serverData["w"] = 23;
-  serverData["x"] = 24;
-  serverData["y"] = 25;
-  serverData["z"] = 26;
+  int startingLetter = 97;
+  for (int i = 0; i < 26; i++)
+  {
+    char asciiChar = startingLetter + i;
+    string s;
+    s += asciiChar;
+    serverData[s] = i + 1;
+  }
   return serverData;
 }
 
