@@ -5,6 +5,7 @@
 #include <map>
 #include <iterator>
 #include <string>
+#include <ctime>
 
 #define MCW MPI_COMM_WORLD
 
@@ -26,13 +27,16 @@ map<string, int> initializeServerData()
 
 string generateRandomLetter()
 {
-  string letters[26] = {"a", "b", "c", "d", "e", "f", "g", "h", "i", "j", "k", "l", "m", "n", "o", "p", "q", "r", "s", "t", "u", "v", "w", "x", "y", "z"};
-
-  return letters[rand() % 26];
+  int asciiVal = 97 + (rand() % (123 - 97 +1));
+  char asciiChar = asciiVal;
+  string s;
+  s += asciiChar;
+  return s;
 }
 
 int main(int argc, char **argv)
 {
+  srand(time(0));
   map<string, int> initializeServerData();
   string generateRandomLetter();
 
@@ -45,7 +49,7 @@ int main(int argc, char **argv)
   if (!rank)
   {
     serverData = initializeServerData();
-    cout << serverData["a"] << endl;
+    cout << serverData[generateRandomLetter()] << endl;
   }
 
   // Process 0 is the server
