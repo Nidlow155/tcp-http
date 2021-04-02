@@ -18,76 +18,30 @@ unsigned long getTime()
   return std::chrono::system_clock::now().time_since_epoch() / std::chrono::milliseconds(1);
 }
 
-map<string, int> initializeServerData()
+map<char, int> initializeServerData()
 {
-  map<string, int> serverData;
+  map<char, int> serverData;
   int startingLetter = 97;
   for (int i = 0; i < 26; i++)
   {
     char asciiChar = startingLetter + i;
-    string s;
-    s += asciiChar;
-    serverData[s] = i + 1;
+    serverData[asciiChar] = i + 1;
   }
   return serverData;
 }
 
-string generateRandomLetter()
+char generateRandomLetter()
 {
   int asciiVal = 97 + (rand() % (123 - 97 +1));
   char asciiChar = asciiVal;
-  string s;
-  s += asciiChar;
-  return s;
-}
-
-// TODO: implement method
-void request_102()
-{
-
-}
-
-// TODO: implement method
-void request_200()
-{
-
-}
-
-// TODO: implement method
-void request_404()
-{
-
-}
-
-// TODO: implement method
-void request_406()
-{
-
-}
-
-// TODO: implement method
-void request_408()
-{
-
-}
-
-// TODO: implement method
-void request_429()
-{
-
-}
-
-// TODO: impelment method
-void request_507()
-{
-
+  return asciiChar;
 }
 
 int main(int argc, char **argv)
 {
   srand(time(0));
-  map<string, int> initializeServerData();
-  string generateRandomLetter();
+  map<char, int> initializeServerData();
+  char generateRandomLetter();
   unsigned long getTime();
   void request_102();
   void request_200();
@@ -97,79 +51,105 @@ int main(int argc, char **argv)
   void request_429();
   void request_507();
 
-  int rank, size, request;
+  int rank, size, requestType, requestReceived;
+  int server = 0;
+  char request;
+  int response[2];
   unsigned long startTime, endTime;
-  map<string, int> serverData;
+  map<char, int> serverData;
   // Each process records how long it takes for a request to be completed : will be averaged later
   vector<int> averageRequestTime;
   // Process 0 records average time to process request : we could do this per request type : will be averaged later
   vector<int> averageProcessingTime;
+  MPI_Status status;
   MPI_Init(&argc, &argv);
   MPI_Comm_rank(MCW, &rank);
   MPI_Comm_size(MCW, &size);
 
   if (!rank)
   {
+    cout << "Server Data Initializing..." << endl;
     serverData = initializeServerData();
-    cout << serverData[generateRandomLetter()] << endl;
+    cout << "Server Data Initialized." << endl;
   }
 
   // Process 0 is the server
   if (!rank)
   {
+    MPI_Recv(&request, 1, MPI_CHAR, MPI_ANY_SOURCE, 0, MCW, &status);
 
+    response[0] = 102;
+    response[1] = 0;
+    MPI_Send(response, 2, MPI_INT, status.MPI_SOURCE, 0, MCW);
+
+    response[0] = 200;
+    response[1] = serverData[request];
+    MPI_Send(response, 2, MPI_INT, status.MPI_SOURCE, 0, MCW);
   }
   // All other processes request from the server
   else
   {
-    // TODO: implement methods above
-    request = rand() % 7;
-    switch(request)
-    {
-      case 0:
-        startTime = getTime();
-        request_102();
-        endTime = getTime();
-        averageRequestTime.push_back(endTime - startTime);
-        break;
-      case 1:
-        startTime = getTime();
-        request_200();
-        endTime = getTime();
-        averageRequestTime(endTime - startTime);
-        break;
-      case 2:
-        startTime = getTime();
-        request_404();
-        endTime = getTime();
-        averageRequestTime(endTime - startTime);
-        break;
-      case 3:
-        startTime = getTime();
-        request_406();
-        endTime = getTime();
-        averageRequestTime(endTime - startTime);
-        break;
-      case 4:
-        startTime = getTime();
-        request_408();
-        endTime = getTime();
-        averageRequestTime(endTime - startTime);
-        break;
-      case 5:
-        startTime = getTime();
-        request_429();
-        endTime = getTime();
-        averageRequestTime(endTime - startTime);
-        break;
-      case 6:
-        startTime = getTime();
-        request_507();
-        endTime = getTime();
-        averageRequestTime(endTime - startTime);
-        break;
+    startTime = getTime();
+    request = generateRandomLetter();
+    MPI_Send(&request, 1, MPI_CHAR, server, 0, MCW);
+    MPI_Recv(response, 2, MPI_INT, server, 0, MCW, MPI_STATUS_IGNORE);
+    cout << "Rank " << rank << " Status: " << response[0] << endl;
+
+    if (response[0] == 102) {
+      MPI_Recv(response, 2, MPI_INT, server, 0, MCW, MPI_STATUS_IGNORE);
     }
 
+    endTime = getTime();
+    averageRequestTime.push_back(endTime - startTime);
+
+    // requestType = rand() % 7;
+    // switch(requestType)
+    // {
+    //   case 0:
+    //     startTime = getTime();
+    //     request_102();
+    //     endTime = getTime();
+    //     averageRequestTime.push_back(endTime - startTime);
+    //     break;
+    //   case 1:
+    //     startTime = getTime();
+    //     request_200();
+    //     endTime = getTime();
+    //     averageRequestTime.push_back(endTime - startTime);
+    //     break;
+    //   case 2:
+    //     startTime = getTime();
+    //     request_404();
+    //     endTime = getTime();
+    //     averageRequestTime.push_back(endTime - startTime);
+    //     break;
+    //   case 3:
+    //     startTime = getTime();
+    //     request_406();
+    //     endTime = getTime();
+    //     averageRequestTime.push_back(endTime - startTime);
+    //     break;
+    //   case 4:
+    //     startTime = getTime();
+    //     request_408();
+    //     endTime = getTime();
+    //     averageRequestTime.push_back(endTime - startTime);
+    //     break;
+    //   case 5:
+    //     startTime = getTime();
+    //     request_429();
+    //     endTime = getTime();
+    //     averageRequestTime.push_back(endTime - startTime);
+    //     break;
+    //   case 6:
+    //     startTime = getTime();
+    //     request_507();
+    //     endTime = getTime();
+    //     averageRequestTime.push_back(endTime - startTime);
+    //     break;
+    // }
+
+    cout << "Rank " << rank << " Status: " << response[0] << endl;
   }
 
   // TODO: Average time values and display that along with other interesting data
