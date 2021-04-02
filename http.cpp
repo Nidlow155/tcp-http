@@ -82,15 +82,23 @@ int main(int argc, char **argv)
     response[1] = 0;
     MPI_Send(response, 2, MPI_INT, status.MPI_SOURCE, 0, MCW);
 
-    response[0] = 200;
-    response[1] = serverData[request];
-    MPI_Send(response, 2, MPI_INT, status.MPI_SOURCE, 0, MCW);
+    if (isalpha(request)) {
+      response[0] = 200;
+      response[1] = serverData[request];
+      MPI_Send(response, 2, MPI_INT, status.MPI_SOURCE, 0, MCW);
+    } else {
+      response[0] = 404;
+      response[1] = 0;
+      MPI_Send(response, 2, MPI_INT, status.MPI_SOURCE, 0, MCW);
+    }
+
   }
   // All other processes request from the server
   else
   {
     startTime = getTime();
     request = generateRandomLetter();
+    // request = '-';
     MPI_Send(&request, 1, MPI_CHAR, server, 0, MCW);
     MPI_Recv(response, 2, MPI_INT, server, 0, MCW, MPI_STATUS_IGNORE);
     cout << "Rank " << rank << " Status: " << response[0] << endl;
@@ -101,54 +109,6 @@ int main(int argc, char **argv)
 
     endTime = getTime();
     averageRequestTime.push_back(endTime - startTime);
-
-    // requestType = rand() % 7;
-    // switch(requestType)
-    // {
-    //   case 0:
-    //     startTime = getTime();
-    //     request_102();
-    //     endTime = getTime();
-    //     averageRequestTime.push_back(endTime - startTime);
-    //     break;
-    //   case 1:
-    //     startTime = getTime();
-    //     request_200();
-    //     endTime = getTime();
-    //     averageRequestTime.push_back(endTime - startTime);
-    //     break;
-    //   case 2:
-    //     startTime = getTime();
-    //     request_404();
-    //     endTime = getTime();
-    //     averageRequestTime.push_back(endTime - startTime);
-    //     break;
-    //   case 3:
-    //     startTime = getTime();
-    //     request_406();
-    //     endTime = getTime();
-    //     averageRequestTime.push_back(endTime - startTime);
-    //     break;
-    //   case 4:
-    //     startTime = getTime();
-    //     request_408();
-    //     endTime = getTime();
-    //     averageRequestTime.push_back(endTime - startTime);
-    //     break;
-    //   case 5:
-    //     startTime = getTime();
-    //     request_429();
-    //     endTime = getTime();
-    //     averageRequestTime.push_back(endTime - startTime);
-    //     break;
-    //   case 6:
-    //     startTime = getTime();
-    //     request_507();
-    //     endTime = getTime();
-    //     averageRequestTime.push_back(endTime - startTime);
-    //     break;
-    // }
-
     cout << "Rank " << rank << " Status: " << response[0] << endl;
   }
 
