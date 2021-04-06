@@ -79,8 +79,6 @@ int main(int argc, char **argv)
     // TODO: implement conditon for when the server should stop
     while (true)
     {
-      // MPI_Recv(&request, 1, MPI_CHAR, MPI_ANY_SOURCE, 0, MCW, &status);
-
       MPI_Iprobe(MPI_ANY_SOURCE, 0, MCW, &requestReceived, &status);
 
       while(requestReceived)
@@ -98,6 +96,7 @@ int main(int argc, char **argv)
           response[1] = 0;
           MPI_Send(response, 2, MPI_INT, status.MPI_SOURCE, 0, MCW);
           requestList.pop_back();
+          break;
         } else
         {
           response[0] = 102;
