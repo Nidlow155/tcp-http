@@ -7,6 +7,7 @@
 #include <string>
 #include <ctime>
 #include <vector>
+#include <deque>
 #include <chrono>
 
 #define MCW MPI_COMM_WORLD
@@ -43,24 +44,23 @@ int main(int argc, char **argv)
   map<char, int> initializeServerData();
   char generateRandomLetter();
   unsigned long getTime();
-  void request_102();
-  void request_200();
-  void request_404();
-  void request_406();
-  void request_408();
-  void request_429();
-  void request_507();
 
-  int rank, size, requestType, requestReceived;
+  int rank, size, requestType, requestReceived, urlType;
   int server = 0;
+  int maxRequestCount = 5;
   char request;
   int response[2];
   unsigned long startTime, endTime;
+  deque<vector<int>> requestList;
   map<char, int> serverData;
+  vector<int> req;
+
   // Each process records how long it takes for a request to be completed : will be averaged later
   vector<int> averageRequestTime;
+
   // Process 0 records average time to process request : we could do this per request type : will be averaged later
   vector<int> averageProcessingTime;
+
   MPI_Status status;
   MPI_Init(&argc, &argv);
   MPI_Comm_rank(MCW, &rank);
@@ -76,40 +76,96 @@ int main(int argc, char **argv)
   // Process 0 is the server
   if (!rank)
   {
-    MPI_Recv(&request, 1, MPI_CHAR, MPI_ANY_SOURCE, 0, MCW, &status);
+    // TODO: implement conditon for when the server should stop
+    while (true)
+    {
+      // MPI_Recv(&request, 1, MPI_CHAR, MPI_ANY_SOURCE, 0, MCW, &status);
 
-    response[0] = 102;
-    response[1] = 0;
-    MPI_Send(response, 2, MPI_INT, status.MPI_SOURCE, 0, MCW);
+      MPI_Iprobe(MPI_ANY_SOURCE, 0, MCW, &requestReceived, &status);
 
-    if (isalpha(request)) {
-      response[0] = 200;
-      response[1] = serverData[request];
-      MPI_Send(response, 2, MPI_INT, status.MPI_SOURCE, 0, MCW);
-    } else {
-      response[0] = 404;
-      response[1] = 0;
-      MPI_Send(response, 2, MPI_INT, status.MPI_SOURCE, 0, MCW);
+      while(requestReceived)
+      {
+        MPI_Iprobe(MPI_ANY_SOURCE, 0, MCW, &requestReceived, &status);
+        MPI_Recv(&request, 1, MPI_CHAR, MPI_ANY_SOURCE, 0, MCW, &status);
+
+        req.push_back(status.MPI_SOURCE);
+        req.push_back(request);
+        requestList.push_back(req);
+
+        if (requestList.size() > maxRequestCount)
+        {
+          response[0] = 507;
+          response[1] = 0;
+          MPI_Send(response, 2, MPI_INT, status.MPI_SOURCE, 0, MCW);
+          requestList.pop_back();
+        } else
+        {
+          response[0] = 102;
+          response[1] = 0;
+          MPI_Send(response, 2, MPI_INT, status.MPI_SOURCE, 0, MCW);
+        }
+      }
+
+      while (requestList.size() > 0)
+      {
+        // In a request the 0th element is the source
+        // the 1st element is the 'url'
+        req = requestList.front();
+        requestList.pop_front();
+        if (isalpha(req[1]))
+        {
+          response[0] = 200;
+          response[1] = serverData[req[1]];
+          MPI_Send(response, 2, MPI_INT, req[0], 0, MCW);
+        }
+        else
+        {
+          response[0] = 404;
+          response[1] = 0;
+          MPI_Send(response, 2, MPI_INT, req[0], 0, MCW);
+        }
+      }
     }
-
   }
   // All other processes request from the server
   else
   {
-    startTime = getTime();
-    request = generateRandomLetter();
-    // request = '-';
-    MPI_Send(&request, 1, MPI_CHAR, server, 0, MCW);
-    MPI_Recv(response, 2, MPI_INT, server, 0, MCW, MPI_STATUS_IGNORE);
-    cout << "Rank " << rank << " Status: " << response[0] << endl;
+    // TODO: implement condition for when the processes should stop
+    while(true)
+    // for (int i = 0; i < maxRequestCount; i++)
+    {
+      startTime = getTime();
+      // Increase the number by one for each url type implemented
+      urlType = rand() % 2;
+      switch(urlType)
+      {
+        case 0:
+          request = generateRandomLetter();
+          break;
+        case 1:
+          request = '-';
+          break;
+      }
 
-    if (response[0] == 102) {
+      MPI_Send(&request, 1, MPI_CHAR, server, 0, MCW);
+      // TODO: see how long process waits if time > 10 seconds then 408
       MPI_Recv(response, 2, MPI_INT, server, 0, MCW, MPI_STATUS_IGNORE);
-    }
+      cout << "Rank " << rank << " Status: " << response[0] << endl;
 
-    endTime = getTime();
-    averageRequestTime.push_back(endTime - startTime);
-    cout << "Rank " << rank << " Status: " << response[0] << endl;
+      if (response[0] == 102) {
+        MPI_Recv(response, 2, MPI_INT, server, 0, MCW, MPI_STATUS_IGNORE);
+        // TODO: if repsonse is 200 then do something with the data received
+      } else if (response[0] == 507) {
+        // 507 means insufficient storage with the server
+        // Send the request again
+        MPI_Send(&request, 1, MPI_CHAR, server, 0, MCW);
+        // TODO: should we wait to receive it here?
+      }
+
+      endTime = getTime();
+      averageRequestTime.push_back(endTime - startTime);
+      cout << "Rank " << rank << " Status: " << response[0] << endl;
+    }
   }
 
   // TODO: Average time values and display that along with other interesting data
