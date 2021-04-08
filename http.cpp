@@ -45,14 +45,17 @@ int main(int argc, char **argv)
   char generateRandomLetter();
   unsigned long getTime();
 
-  int rank, size, requestType, requestReceived, urlType;
+  int rank, size, requestType, requestReceived, responseReceived, urlType;
   int server = 0; // a little syntactic sugar
   int numOf102 = 0;
   int numOf200 = 0;
   int numOf404 = 0;
   int numOf429 = 0;
   int numOf507 = 0;
-
+  int totalRequestsSent = 0;
+  int totalRequestsReceived = 0;
+  int requestsSent = 0;
+  int maxRequestsToSend = 50;
   char request;
   int response[2];
   unsigned long startTime, endTime;
@@ -71,8 +74,9 @@ int main(int argc, char **argv)
   MPI_Comm_rank(MCW, &rank);
   MPI_Comm_size(MCW, &size);
 
+  int maxRequestsToReceive = (size-2) * maxRequestsToSend;
   int maxRequestCount = size / 2;
-  int maxRequestPerProcess = size / 4;
+  int maxRequestPerProcess = size;
   int requestsPerProcess[size];
 
   if (!rank)
@@ -89,15 +93,14 @@ int main(int argc, char **argv)
   // Process 0 is the server
   if (!rank)
   {
-    // TODO: implement conditon for when the server should stop
     while (true)
     {
       MPI_Iprobe(MPI_ANY_SOURCE, 0, MCW, &requestReceived, &status);
 
       while(requestReceived)
       {
-        MPI_Iprobe(MPI_ANY_SOURCE, 0, MCW, &requestReceived, &status);
         MPI_Recv(&request, 1, MPI_CHAR, MPI_ANY_SOURCE, 0, MCW, &status);
+        totalRequestsReceived++;
 
         req.push_back(status.MPI_SOURCE);
         req.push_back(request);
@@ -130,6 +133,7 @@ int main(int argc, char **argv)
           response[1] = 0;
           MPI_Send(response, 2, MPI_INT, status.MPI_SOURCE, 0, MCW);
         }
+        MPI_Iprobe(MPI_ANY_SOURCE, 0, MCW, &requestReceived, &status);
       }
 
       while (requestList.size() > 0)
@@ -154,14 +158,15 @@ int main(int argc, char **argv)
         }
         requestsPerProcess[req[0]]--;
       }
+      if (totalRequestsReceived >= maxRequestsToReceive) {
+        break;
+      }
     }
   }
   // All other processes request from the server
   else
   {
-    // TODO: implement condition for when the processes should stop
     while(true)
-    // for (int i = 0; i < maxRequestCount; i++)
     {
       startTime = getTime();
       // Increase the number by one for each url type implemented
@@ -176,34 +181,38 @@ int main(int argc, char **argv)
           break;
       }
 
-      MPI_Send(&request, 1, MPI_CHAR, server, 0, MCW);
-      // TODO: see how long process waits if time > 10 seconds then 408
-      MPI_Recv(response, 2, MPI_INT, server, 0, MCW, MPI_STATUS_IGNORE);
-      // cout << "Rank " << rank << " Status: " << response[0] << endl;
-
-      // Keep track of how many times each response comes through so we can see the most common response
-      switch (response[0]) {
-        case 102:
-          numOf102++;
-          MPI_Recv(response, 2, MPI_INT, server, 0, MCW, MPI_STATUS_IGNORE);
-          if (response[0] == 200) {
-            numOf200++;
-          } else if (response[0] == 404) {
-            numOf404++;
-          }
-          break;
-        case 429:
-          numOf429++;
-          break;
-        case 507:
-          numOf507++;
-          MPI_Send(&request, 1, MPI_CHAR, server, 0, MCW);
-          break;
+      if (totalRequestsSent <= maxRequestsToSend) {
+        MPI_Send(&request, 1, MPI_CHAR, server, 0, MCW);
+        totalRequestsSent++;
       }
 
-      endTime = getTime();
-      averageRequestTime.push_back(endTime - startTime);
-      cout << "Rank " << rank << " Status: " << response[0] << endl;
+      MPI_Iprobe(server, 0, MCW, &responseReceived, MPI_STATUS_IGNORE);
+      if (responseReceived) {
+        MPI_Recv(response, 2, MPI_INT, server, 0, MCW, MPI_STATUS_IGNORE);
+
+        // Keep track of how many times each response comes through so we can see the most common response
+        switch (response[0]) {
+          case 102:
+            numOf102++;
+            MPI_Recv(response, 2, MPI_INT, server, 0, MCW, MPI_STATUS_IGNORE);
+            if (response[0] == 200) {
+              numOf200++;
+            } else if (response[0] == 404) {
+              numOf404++;
+            }
+            break;
+          case 429:
+            numOf429++;
+            break;
+          case 507:
+            numOf507++;
+            break;
+        }
+
+        endTime = getTime();
+        averageRequestTime.push_back(endTime - startTime);
+        cout << "Rank " << rank << " Status: " << response[0] << endl;
+      }
     }
   }
 
