@@ -46,7 +46,13 @@ int main(int argc, char **argv)
   unsigned long getTime();
 
   int rank, size, requestType, requestReceived, urlType;
-  int server = 0;
+  int server = 0; // a little syntactic sugar
+  int numOf102 = 0;
+  int numOf200 = 0;
+  int numOf404 = 0;
+  int numOf429 = 0;
+  int numOf507 = 0;
+
   char request;
   int response[2];
   unsigned long startTime, endTime;
@@ -64,6 +70,7 @@ int main(int argc, char **argv)
   MPI_Init(&argc, &argv);
   MPI_Comm_rank(MCW, &rank);
   MPI_Comm_size(MCW, &size);
+
   int maxRequestCount = size / 2;
   int maxRequestPerProcess = size / 4;
   int requestsPerProcess[size];
@@ -174,15 +181,24 @@ int main(int argc, char **argv)
       MPI_Recv(response, 2, MPI_INT, server, 0, MCW, MPI_STATUS_IGNORE);
       // cout << "Rank " << rank << " Status: " << response[0] << endl;
 
-      if (response[0] == 102) {
-        MPI_Recv(response, 2, MPI_INT, server, 0, MCW, MPI_STATUS_IGNORE);
-        // TODO: if repsonse is 200 then do something with the data received
-      } else if (response[0] == 507) {
-        // 507 means insufficient storage with the server
-        // Send the request again
-        MPI_Send(&request, 1, MPI_CHAR, server, 0, MCW);
-      } else if (response[0] == 429) {
-        // TODO: keep track of metrics
+      // Keep track of how many times each response comes through so we can see the most common response
+      switch (response[0]) {
+        case 102:
+          numOf102++;
+          MPI_Recv(response, 2, MPI_INT, server, 0, MCW, MPI_STATUS_IGNORE);
+          if (response[0] == 200) {
+            numOf200++;
+          } else if (response[0] == 404) {
+            numOf404++;
+          }
+          break;
+        case 429:
+          numOf429++;
+          break;
+        case 507:
+          numOf507++;
+          MPI_Send(&request, 1, MPI_CHAR, server, 0, MCW);
+          break;
       }
 
       endTime = getTime();
