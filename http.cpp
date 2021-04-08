@@ -40,7 +40,6 @@ char generateRandomLetter()
 
 int main(int argc, char **argv)
 {
-  srand(time(0));
   map<char, int> initializeServerData();
   char generateRandomLetter();
   unsigned long getTime();
@@ -56,6 +55,7 @@ int main(int argc, char **argv)
   int totalRequestsReceived = 0;
   int requestsSent = 0;
   int maxRequestsToSend = 50;
+  bool serverUnavailable = false;
   char request;
   int response[2];
   unsigned long startTime, endTime;
@@ -73,6 +73,7 @@ int main(int argc, char **argv)
   MPI_Init(&argc, &argv);
   MPI_Comm_rank(MCW, &rank);
   MPI_Comm_size(MCW, &size);
+  srand(time(0));
 
   int maxRequestsToReceive = (size-2) * maxRequestsToSend;
   int maxRequestCount = size / 2;
@@ -111,6 +112,7 @@ int main(int argc, char **argv)
         // 507 - Insufficient Storage
         if (requestList.size() > maxRequestCount)
         {
+          numOf507++;
           response[0] = 507;
           response[1] = 0;
           MPI_Send(response, 2, MPI_INT, status.MPI_SOURCE, 0, MCW);
@@ -120,6 +122,7 @@ int main(int argc, char **argv)
         }
         else if (numOfRequests > maxRequestPerProcess)
         {
+          numOf429++;
           response[0] = 429;
           response[1] = 0;
           MPI_Send(response, 2, MPI_INT, status.MPI_SOURCE, 0, MCW);
@@ -129,6 +132,7 @@ int main(int argc, char **argv)
         else
         {
           // 102 - Request Received
+          numOf102++;
           response[0] = 102;
           response[1] = 0;
           MPI_Send(response, 2, MPI_INT, status.MPI_SOURCE, 0, MCW);
@@ -145,6 +149,7 @@ int main(int argc, char **argv)
         if (isalpha(req[1]))
         {
           // 200 - OK Request
+          numOf200++;
           response[0] = 200;
           response[1] = serverData[req[1]];
           MPI_Send(response, 2, MPI_INT, req[0], 0, MCW);
@@ -152,6 +157,7 @@ int main(int argc, char **argv)
         else
         {
           // 404 - Request Not Found
+          numOf404++;
           response[0] = 404;
           response[1] = 0;
           MPI_Send(response, 2, MPI_INT, req[0], 0, MCW);
@@ -159,6 +165,13 @@ int main(int argc, char **argv)
         requestsPerProcess[req[0]]--;
       }
       if (totalRequestsReceived >= maxRequestsToReceive) {
+        // Respond with a server error indicating for the processes to stop
+        // 503 - Server error service unavailable
+        for (int i = 1; i < size; i++) {
+          response[0] = 503;
+          response[1] = 0;
+          MPI_Send(response, 2, MPI_INT, i, 0, MCW);
+        }
         break;
       }
     }
@@ -204,6 +217,9 @@ int main(int argc, char **argv)
           case 429:
             numOf429++;
             break;
+          case 503:
+            serverUnavailable = true;
+            break;
           case 507:
             numOf507++;
             break;
@@ -213,10 +229,25 @@ int main(int argc, char **argv)
         averageRequestTime.push_back(endTime - startTime);
         cout << "Rank " << rank << " Status: " << response[0] << endl;
       }
+      if (serverUnavailable) {
+        break;
+      }
     }
   }
 
-  // TODO: Average time values and display that along with other interesting data
+  MPI_Barrier(MCW);
+  cout << endl;
+  if (!rank) {
+    cout << "Results for the server" << endl;
+  } else {
+    cout << "Results for " << rank << endl;
+  }
+  cout << "--------" << endl;
+  cout << "Number of 102 Responses: " << numOf102 << endl;
+  cout << "Number of 200 Responses: " << numOf200 << endl;
+  cout << "Number of 404 Responses: " << numOf404 << endl;
+  cout << "Number of 429 Responses: " << numOf429 << endl;
+  cout << "Number of 507 Responses: " << numOf507 << endl;
 
   MPI_Finalize();
 
