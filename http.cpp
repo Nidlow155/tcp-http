@@ -237,11 +237,7 @@ int main(int argc, char **argv)
 
   MPI_Barrier(MCW);
   cout << endl;
-  if (!rank) {
-    cout << "Results for the server" << endl;
-  } else {
-    cout << "Results for " << rank << endl;
-  }
+  cout << "Results for " << rank << endl;
   cout << "--------" << endl;
   cout << "Number of 102 Responses: " << numOf102 << endl;
   cout << "Number of 200 Responses: " << numOf200 << endl;
