@@ -47,7 +47,6 @@ int main(int argc, char **argv)
 
   int rank, size, requestType, requestReceived, urlType;
   int server = 0;
-  int maxRequestCount = 5;
   char request;
   int response[2];
   unsigned long startTime, endTime;
@@ -65,12 +64,19 @@ int main(int argc, char **argv)
   MPI_Init(&argc, &argv);
   MPI_Comm_rank(MCW, &rank);
   MPI_Comm_size(MCW, &size);
+  int maxRequestCount = size / 2;
+  int maxRequestPerProcess = size / 4;
+  int requestsPerProcess[size];
 
   if (!rank)
   {
     cout << "Server Data Initializing..." << endl;
     serverData = initializeServerData();
     cout << "Server Data Initialized." << endl;
+
+    for (int i = 0; i < size; i++) {
+      requestsPerProcess[i] = 0;
+    }
   }
 
   // Process 0 is the server
@@ -89,16 +95,30 @@ int main(int argc, char **argv)
         req.push_back(status.MPI_SOURCE);
         req.push_back(request);
         requestList.push_back(req);
+        requestsPerProcess[status.MPI_SOURCE]++;
+        int numOfRequests = requestsPerProcess[status.MPI_SOURCE];
 
+        // 507 - Insufficient Storage
         if (requestList.size() > maxRequestCount)
         {
           response[0] = 507;
           response[1] = 0;
           MPI_Send(response, 2, MPI_INT, status.MPI_SOURCE, 0, MCW);
           requestList.pop_back();
+          requestsPerProcess[status.MPI_SOURCE]--;
           break;
-        } else
+        }
+        else if (numOfRequests > maxRequestPerProcess)
         {
+          response[0] = 429;
+          response[1] = 0;
+          MPI_Send(response, 2, MPI_INT, status.MPI_SOURCE, 0, MCW);
+          requestList.pop_back();
+          requestsPerProcess[status.MPI_SOURCE]--;
+        }
+        else
+        {
+          // 102 - Request Received
           response[0] = 102;
           response[1] = 0;
           MPI_Send(response, 2, MPI_INT, status.MPI_SOURCE, 0, MCW);
@@ -113,16 +133,19 @@ int main(int argc, char **argv)
         requestList.pop_front();
         if (isalpha(req[1]))
         {
+          // 200 - OK Request
           response[0] = 200;
           response[1] = serverData[req[1]];
           MPI_Send(response, 2, MPI_INT, req[0], 0, MCW);
         }
         else
         {
+          // 404 - Request Not Found
           response[0] = 404;
           response[1] = 0;
           MPI_Send(response, 2, MPI_INT, req[0], 0, MCW);
         }
+        requestsPerProcess[req[0]]--;
       }
     }
   }
@@ -149,7 +172,7 @@ int main(int argc, char **argv)
       MPI_Send(&request, 1, MPI_CHAR, server, 0, MCW);
       // TODO: see how long process waits if time > 10 seconds then 408
       MPI_Recv(response, 2, MPI_INT, server, 0, MCW, MPI_STATUS_IGNORE);
-      cout << "Rank " << rank << " Status: " << response[0] << endl;
+      // cout << "Rank " << rank << " Status: " << response[0] << endl;
 
       if (response[0] == 102) {
         MPI_Recv(response, 2, MPI_INT, server, 0, MCW, MPI_STATUS_IGNORE);
@@ -158,7 +181,8 @@ int main(int argc, char **argv)
         // 507 means insufficient storage with the server
         // Send the request again
         MPI_Send(&request, 1, MPI_CHAR, server, 0, MCW);
-        // TODO: should we wait to receive it here?
+      } else if (response[0] == 429) {
+        // TODO: keep track of metrics
       }
 
       endTime = getTime();
