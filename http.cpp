@@ -190,16 +190,6 @@ int main(int argc, char **argv)
         request = '-';
       }
 
-      // switch(urlType)
-      // {
-      //   case 0:
-      //     request = generateRandomLetter();
-      //     break;
-      //   case 1:
-      //     request = '-';
-      //     break;
-      // }
-
       if (totalRequestsSent <= maxRequestsToSend) {
         MPI_Send(&request, 1, MPI_CHAR, server, 0, MCW);
         totalRequestsSent++;
